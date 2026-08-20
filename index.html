@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>David Vases AR</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="ar-page">
+      <aside id="info-panel" class="info-panel" aria-hidden="true">
+        <h1>INSCRIPTION</h1>
+        <p>
+          <strong>Original inscription:</strong><br />
+          信州路。玉山縣。順城鄉。德教里。荊塘社。奉聖弟子。張文進。喜捨。香炉。花瓶。一付。祈保。合家清吉。子女平安。至正十一年。四月。良辰。吉日捨。星源。祖殿。胡淨一元帥。打供。
+        </p>
+        <p>
+          <strong>English translation:</strong><br />
+          Xinzhou lu. Yushan xian. Shuncheng xiang. Dejiao li Jingtang she. Fengheng dizi. Zhang Wenjin. Xishe xianglu huaping yifu. Qibao hejia qingji zinu ping'an Zhizheng shiyi nian siyue liangcheng jiri she. Xingyuan zudian Hu Jingyo yuanshuai dagong.<br />
+          Inscription translation: Zhang Wenjin, from Jingtang community, Dejiao village, Shuncheng township, Yushan county, Xinzhou circuit, a disciple of the Holy Gods, is pleased to offer a set comprising one incense burner and a pair of flower vases to General Hu Jingyi at the Original Palace in Xingyuan, as a prayer for the protection and blessing of the whole family and for the peace of his sons and daughters. Offered on an auspicious day in the 4th month, 11th Year of the Zhizheng reign.
+        </p>
+      </aside>
+
+      <div id="status" class="status" role="status">Point the camera at the David Vases image</div>
+
+      <a-scene
+        id="ar-scene"
+        mindar-image="imageTargetSrc: ./DavidVases_Target.mind; autoStart: true; uiLoading: yes; uiScanning: yes; uiError: yes;"
+        color-space="sRGB"
+        renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false"
+        embedded
+      >
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity id="image-target" mindar-image-target="targetIndex: 0">
+          <!--
+            Highlight tuning values:
+            position: x y z (move horizontally, vertically, and slightly above the image)
+            width/height: size relative to the target image width
+          -->
+          <a-plane
+            id="inscription-highlight"
+            position="0.15 0.39 0.015"
+            width="0.26"
+            height="0.36"
+            color="#ffd84d"
+            material="transparent: true; opacity: 0; depthTest: false; side: double"
+            visible="false"
+          ></a-plane>
+        </a-entity>
+      </a-scene>
+    </main>
+  </body>
+</html>
