@@ -169,7 +169,7 @@ a-scene {
   position: absolute;
   z-index: 2;
   left: 50%;
-  top: calc(var(--ship-center-y, 46%) + min(43vw, 39vh, 305px) + 14px);
+  top: calc(var(--ship-center-y, 46%) + min(43vw, 39vh, 305px) + 28px);
   margin: 0;
   transform: translateX(-50%);
   color: rgba(235, 241, 243, 0.88);
@@ -364,7 +364,7 @@ a-scene {
   }
 
   .dice-ui {
-    bottom: calc(max(6vh, calc(env(safe-area-inset-bottom) + 20px)) + 64px);
+    bottom: calc(max(6vh, calc(env(safe-area-inset-bottom) + 20px)) + 96px);
   }
 }
 

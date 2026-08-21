@@ -30,8 +30,8 @@ const DICE_CONFIG = {
   rotationSpeed: { xTurns: 3, yTurns: 4, zTurns: 3 },
   cornerRadius: 0.16,
   cornerSegments: 8,
-  arScale: 0.45,
-  overlayY: -0.25,
+  arScale: 0.405,
+  overlayY: -0.16,
   idleRotation: {
     x: 25 * Math.PI / 180,
     y: 45 * Math.PI / 180,
