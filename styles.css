@@ -65,6 +65,57 @@ a-scene {
   transition-delay: 0s;
 }
 
+#camel-screen-overlay {
+  position: fixed;
+  z-index: 9;
+  inset: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#camel-screen-overlay.is-active {
+  visibility: visible;
+}
+
+#camel-media-frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(88vw, calc(86vh * 0.70484));
+  aspect-ratio: 1748 / 2480;
+  transform: translate(-50%, -50%);
+}
+
+#camel-cutout-image,
+.camel-figure-layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+#camel-cutout-image {
+  z-index: 2;
+  opacity: 0;
+  filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+  transform-origin: 64% 31%;
+  will-change: opacity, transform, filter;
+}
+
+.camel-figure-layer {
+  z-index: 1;
+  opacity: 0;
+  filter: brightness(0.82) blur(2px);
+  transform: scale(1.01);
+  transform-origin: center;
+  will-change: opacity, filter, transform;
+}
+
 .ship-screen-backdrop {
   position: absolute;
   left: var(--ship-center-x, 50%);

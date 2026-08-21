@@ -43,6 +43,21 @@
         </button>
       </div>
 
+      <div id="camel-screen-overlay" aria-hidden="true">
+        <div id="camel-media-frame">
+          <img
+            id="camel-cutout-image"
+            src="./camel/camel_group_cutout.png"
+            alt=""
+            draggable="false"
+          />
+          <img class="camel-figure-layer" src="./camel/camel_layer_1.png" alt="" draggable="false" />
+          <img class="camel-figure-layer" src="./camel/camel_layer_2.png" alt="" draggable="false" />
+          <img class="camel-figure-layer" src="./camel/camel_layer_3.png" alt="" draggable="false" />
+          <img class="camel-figure-layer" src="./camel/camel_layer_4.png" alt="" draggable="false" />
+        </div>
+      </div>
+
       <a-scene
         id="ar-scene"
         mindar-image="imageTargetSrc: ./Museum_Targets.mind; autoStart: true; uiLoading: yes; uiScanning: yes; uiError: yes;"
@@ -126,6 +141,9 @@
 
         <!-- Trigger only: the Ship experience is a stable screen-fixed HTML overlay. -->
         <a-entity id="ship-target" mindar-image-target="targetIndex: 3"></a-entity>
+
+        <!-- Trigger only: Camel contextualisation plays in a stable screen-fixed overlay. -->
+        <a-entity id="camel-target" mindar-image-target="targetIndex: 4"></a-entity>
       </a-scene>
     </main>
   </body>

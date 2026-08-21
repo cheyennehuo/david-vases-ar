@@ -44,9 +44,12 @@ const DICE_CONFIG = {
 const DICE_SOUND_CONFIG = {
   enabled: true,
   masterVolume: 0.12,
-  impactCount: 7,
+  rollingImpactCount: 6,
+  rollingTimingSlots: 8,
   finalImpactVolume: 0.72,
   soundDuration: 1.48,
+  landingImpactLead: 0,
+  landingImpactAudioDelay: 40,
 };
 
 // Screen-space Ship tuning. CSS accepts any length/percentage values here.
@@ -73,6 +76,35 @@ const SHIP_SCREEN_CONFIG = {
   ],
 };
 
+// Screen-fixed Camel contextualisation tuning. Positions are percentages of
+// the uncropped group photograph, and durations are milliseconds.
+const CAMEL_AR_CONFIG = {
+  targetIndex: 4,
+  cutoutFadeInDuration: 350,
+  cutoutInitialHoldDuration: 300,
+  cutoutStartScale: 2.8,
+  cutoutStartX: -14,
+  cutoutStartY: 19,
+  cutoutEndScale: 1,
+  cutoutEndX: 0,
+  cutoutEndY: 0,
+  cutoutMoveDuration: 2000,
+  cutoutMoveEasing: "cubic-bezier(0.45, 0, 0.25, 1)",
+  camelSettledPause: 180,
+  layerFadeDuration: 600,
+  layerStaggerDelay: 1000,
+  layerInitialBrightness: 0.82,
+  layerInitialBlur: 2,
+  layerInitialScale: 1.01,
+  finalHoldDuration: 2000,
+};
+
+const CAMEL_PLAYBACK_STATE = Object.freeze({
+  IDLE: "IDLE",
+  PLAYING: "PLAYING",
+  WAIT_FOR_CLEAR: "WAIT_FOR_CLEAR",
+});
+
 let diceAudioContext;
 let diceNoiseBuffer;
 
@@ -95,7 +127,14 @@ const getDiceNoiseBuffer = (audioContext) => {
   return diceNoiseBuffer;
 };
 
-const scheduleCrystalImpact = (audioContext, output, time, strength, finalImpact = false) => {
+const scheduleCrystalImpact = (
+  audioContext,
+  output,
+  time,
+  strength,
+  finalImpact = false,
+  audioSession
+) => {
   const decay = finalImpact ? 0.085 : 0.045 + Math.random() * 0.018;
 
   const tone = audioContext.createOscillator();
@@ -112,6 +151,9 @@ const scheduleCrystalImpact = (audioContext, output, time, strength, finalImpact
   toneGain.gain.setValueAtTime(Math.max(0.0001, strength * 0.34), time);
   toneGain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
   tone.connect(toneGain).connect(output);
+  audioSession?.sources.add(tone);
+  audioSession?.nodes.add(tone);
+  audioSession?.nodes.add(toneGain);
   tone.start(time);
   tone.stop(time + decay + 0.01);
 
@@ -125,23 +167,47 @@ const scheduleCrystalImpact = (audioContext, output, time, strength, finalImpact
   noiseGain.gain.setValueAtTime(Math.max(0.0001, strength * 0.22), time);
   noiseGain.gain.exponentialRampToValueAtTime(0.0001, time + decay * 0.72);
   noise.connect(noiseFilter).connect(noiseGain).connect(output);
+  audioSession?.sources.add(noise);
+  audioSession?.nodes.add(noise);
+  audioSession?.nodes.add(noiseFilter);
+  audioSession?.nodes.add(noiseGain);
   noise.start(time, Math.random() * 0.01);
   noise.stop(time + decay);
 };
 
 const playDiceRollSound = () => {
-  if (!DICE_SOUND_CONFIG.enabled) return;
+  const silentSession = { playLandingImpact: () => {}, cleanup: () => {} };
+  if (!DICE_SOUND_CONFIG.enabled) return silentSession;
   const audioContext = getDiceAudioContext();
-  if (!audioContext) return;
+  if (!audioContext) return silentSession;
 
   const master = audioContext.createGain();
+  const audioSession = {
+    sources: new Set(),
+    nodes: new Set([master]),
+    cleanupTimer: undefined,
+    cleaned: false,
+    cleanup() {
+      if (this.cleaned) return;
+      this.cleaned = true;
+      window.clearTimeout(this.cleanupTimer);
+      this.sources.forEach((source) => {
+        try { source.stop(); } catch (_) {}
+      });
+      this.nodes.forEach((node) => {
+        try { node.disconnect(); } catch (_) {}
+      });
+      this.sources.clear();
+      this.nodes.clear();
+    },
+  };
   master.gain.setValueAtTime(DICE_SOUND_CONFIG.masterVolume, audioContext.currentTime);
   master.connect(audioContext.destination);
 
   const start = audioContext.currentTime + 0.015;
   const rollingEnd = DICE_SOUND_CONFIG.soundDuration - 0.13;
-  for (let index = 0; index < DICE_SOUND_CONFIG.impactCount; index += 1) {
-    const progress = (index + 1) / (DICE_SOUND_CONFIG.impactCount + 1);
+  for (let index = 0; index < DICE_SOUND_CONFIG.rollingImpactCount; index += 1) {
+    const progress = (index + 1) / DICE_SOUND_CONFIG.rollingTimingSlots;
     const slowingTime = Math.pow(progress, 1.62) * rollingEnd;
     const irregularity = (Math.random() - 0.5) * 0.035;
     const strength = 0.28 + Math.random() * 0.18 - progress * 0.055;
@@ -149,18 +215,30 @@ const playDiceRollSound = () => {
       audioContext,
       master,
       start + Math.max(0, slowingTime + irregularity),
-      strength
+      strength,
+      false,
+      audioSession
     );
   }
 
-  scheduleCrystalImpact(
-    audioContext,
-    master,
-    start + DICE_SOUND_CONFIG.soundDuration - 0.06,
-    DICE_SOUND_CONFIG.finalImpactVolume,
-    true
+  let landingImpactPlayed = false;
+  audioSession.cleanupTimer = window.setTimeout(
+    () => audioSession.cleanup(),
+    DICE_CONFIG.rollDuration + 300
   );
-  window.setTimeout(() => master.disconnect(), (DICE_SOUND_CONFIG.soundDuration + 0.3) * 1000);
+  audioSession.playLandingImpact = () => {
+    if (audioSession.cleaned || landingImpactPlayed) return;
+    landingImpactPlayed = true;
+    scheduleCrystalImpact(
+      audioContext,
+      master,
+      audioContext.currentTime + DICE_SOUND_CONFIG.landingImpactAudioDelay / 1000,
+      DICE_SOUND_CONFIG.finalImpactVolume,
+      true,
+      audioSession
+    );
+  };
+  return audioSession;
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -168,9 +246,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const helmetTarget = document.querySelector("#helmet-target");
   const diceTarget = document.querySelector("#dice-target");
   const shipTarget = document.querySelector("#ship-target");
+  const camelTarget = document.querySelector("#camel-target");
   const shipOverlay = document.querySelector("#ship-screen-overlay");
   const shipButton = document.querySelector("#ship-screen-button");
   const shipEffects = document.querySelector("#ship-screen-effects");
+  const camelOverlay = document.querySelector("#camel-screen-overlay");
+  const camelCutoutImage = document.querySelector("#camel-cutout-image");
+  const camelFigureLayers = Array.from(document.querySelectorAll(".camel-figure-layer"));
   const diceOverlayCanvas = document.querySelector("#dice-overlay-canvas");
   const helmetFragments = Array.from(document.querySelectorAll(".helmet-fragment"));
   const highlight = document.querySelector("#inscription-highlight");
@@ -186,10 +268,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let helmetVisible = false;
   let diceVisible = false;
   let shipVisible = false;
+  let camelVisible = false;
+  let camelTargetVisible = false;
   let shipAutoFireTimer;
   let shipEffectTimers = [];
   let shipAudioContext;
   let shipFiring = false;
+  let camelPlayed = false;
+  let camelPlaybackState = CAMEL_PLAYBACK_STATE.IDLE;
+  let camelTimers = [];
+  let camelFinalLayerTransitionEndHandler;
 
   const easeInOutCubic = (value) =>
     value < 0.5
@@ -198,8 +286,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const clamp01 = (value) => Math.min(1, Math.max(0, value));
 
+  const isCamelPlaybackLocked = () =>
+    camelPlaybackState === CAMEL_PLAYBACK_STATE.PLAYING;
+
   const updateStatus = () => {
-    if (shipVisible) {
+    if (camelVisible) {
+      status.textContent = "Tang Tomb Camel found";
+    } else if (shipVisible) {
       status.textContent = "Mechanical Ship found — tap the ship to fire";
     } else if (diceVisible) {
       status.textContent = "Dice found";
@@ -322,6 +415,119 @@ document.addEventListener("DOMContentLoaded", () => {
     shipVisible = false;
     resetShip();
     updateStatus();
+  };
+
+  const setCamelCutoutTransform = (scale, x, y) => {
+    camelCutoutImage.style.transform =
+      `translate3d(${x}%, ${y}%, 0) scale(${scale})`;
+  };
+
+  const clearCamelTimers = () => {
+    camelTimers.forEach(window.clearTimeout);
+    camelTimers = [];
+    if (camelFinalLayerTransitionEndHandler) {
+      const finalLayer = camelFigureLayers[camelFigureLayers.length - 1];
+      if (finalLayer) {
+        finalLayer.removeEventListener("transitionend", camelFinalLayerTransitionEndHandler);
+      }
+      camelFinalLayerTransitionEndHandler = undefined;
+    }
+  };
+
+  const resetCamel = () => {
+    clearCamelTimers();
+    camelPlayed = false;
+    camelOverlay.classList.remove("is-active");
+    camelOverlay.setAttribute("aria-hidden", "true");
+    camelCutoutImage.style.transition = "none";
+    camelCutoutImage.style.opacity = "0";
+    camelCutoutImage.style.filter = "brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0))";
+    setCamelCutoutTransform(
+      CAMEL_AR_CONFIG.cutoutStartScale,
+      CAMEL_AR_CONFIG.cutoutStartX,
+      CAMEL_AR_CONFIG.cutoutStartY
+    );
+    camelFigureLayers.forEach((layer) => {
+      layer.style.transition = "none";
+      layer.style.opacity = "0";
+      layer.style.filter =
+        `brightness(${CAMEL_AR_CONFIG.layerInitialBrightness}) ` +
+        `blur(${CAMEL_AR_CONFIG.layerInitialBlur}px)`;
+      layer.style.transform = `scale(${CAMEL_AR_CONFIG.layerInitialScale})`;
+    });
+  };
+
+  const deactivateCamel = () => {
+    // A different target must not interrupt a Camel sequence in progress.
+    if (camelPlaybackState === CAMEL_PLAYBACK_STATE.PLAYING) return;
+    if (!camelVisible && !camelPlayed) return;
+    camelVisible = false;
+    resetCamel();
+    updateStatus();
+  };
+
+  const playCamel = () => {
+    if (camelPlayed) return;
+    camelPlayed = true;
+    const config = CAMEL_AR_CONFIG;
+    camelOverlay.classList.add("is-active");
+    camelOverlay.setAttribute("aria-hidden", "false");
+    setCamelCutoutTransform(config.cutoutStartScale, config.cutoutStartX, config.cutoutStartY);
+
+    // Force the reset styles to paint before revealing the cutout directly.
+    camelOverlay.getBoundingClientRect();
+    camelCutoutImage.style.transition =
+      `opacity ${config.cutoutFadeInDuration}ms ease-out`;
+    camelCutoutImage.style.opacity = "1";
+
+    const moveStart = config.cutoutFadeInDuration + config.cutoutInitialHoldDuration;
+    camelTimers.push(window.setTimeout(() => {
+      camelCutoutImage.style.transition =
+        `transform ${config.cutoutMoveDuration}ms ${config.cutoutMoveEasing}`;
+      setCamelCutoutTransform(config.cutoutEndScale, config.cutoutEndX, config.cutoutEndY);
+
+      // No figure layer can start until the cutout move and settling pause end.
+      camelTimers.push(window.setTimeout(() => {
+        if (!camelVisible || !camelPlayed) return;
+        camelFigureLayers.forEach((layer, index) => {
+          camelTimers.push(window.setTimeout(() => {
+            if (!camelVisible || !camelPlayed) return;
+            layer.style.transition =
+              `opacity ${config.layerFadeDuration}ms ease-out, ` +
+              `filter ${config.layerFadeDuration}ms ease-out, ` +
+              `transform ${config.layerFadeDuration}ms ease-out`;
+            layer.style.opacity = "1";
+            layer.style.filter = "brightness(1) blur(0)";
+            layer.style.transform = "scale(1)";
+
+            // Start the final hold from layer 4's real transition completion,
+            // rather than estimating the end of its fade with another timer.
+            if (index === camelFigureLayers.length - 1) {
+              camelFinalLayerTransitionEndHandler = (event) => {
+                if (event.target !== layer || event.propertyName !== "opacity") return;
+                layer.removeEventListener("transitionend", camelFinalLayerTransitionEndHandler);
+                camelFinalLayerTransitionEndHandler = undefined;
+                camelTimers.push(window.setTimeout(() => {
+                  if (camelPlaybackState !== CAMEL_PLAYBACK_STATE.PLAYING) return;
+                  if (camelTargetVisible) {
+                    camelPlaybackState = CAMEL_PLAYBACK_STATE.WAIT_FOR_CLEAR;
+                    return;
+                  }
+
+                  // The target was already cleared during playback, so there
+                  // will be no later targetLost event to dismiss the overlay.
+                  camelPlaybackState = CAMEL_PLAYBACK_STATE.IDLE;
+                  camelVisible = false;
+                  resetCamel();
+                  updateStatus();
+                }, config.finalHoldDuration));
+              };
+              layer.addEventListener("transitionend", camelFinalLayerTransitionEndHandler);
+            }
+          }, index * config.layerStaggerDelay));
+        });
+      }, config.cutoutMoveDuration + config.camelSettledPause));
+    }, moveStart));
   };
 
   setShipScreenLayout();
@@ -602,6 +808,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let diceReady = false;
   let entranceOpacity = 0;
   let diceAnimationFrame;
+  let currentDiceAudioSession;
 
   const easeOutQuint = (value) => 1 - Math.pow(1 - value, 5);
   const presentationQuaternion = new THREE.Quaternion().setFromEuler(
@@ -643,6 +850,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetDice = () => {
     window.cancelAnimationFrame(diceAnimationFrame);
     diceAnimationFrame = undefined;
+    currentDiceAudioSession?.cleanup();
+    currentDiceAudioSession = undefined;
     diceRolling = false;
     diceReady = false;
     dice.position.set(0, DICE_CONFIG.overlayY, 0);
@@ -727,7 +936,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const rollDice = () => {
     if (!diceVisible || !diceReady || diceRolling) return;
-    playDiceRollSound();
+    currentDiceAudioSession?.cleanup();
+    const diceAudioSession = playDiceRollSound();
+    currentDiceAudioSession = diceAudioSession;
     diceRolling = true;
     diceReady = false;
     hideDiceUi();
@@ -738,6 +949,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const interpolated = new THREE.Quaternion();
     const spin = new THREE.Quaternion();
     const spinEuler = new THREE.Euler(0, 0, 0, "XYZ");
+    let landingImpactTriggered = false;
 
     const animateRoll = (now) => {
       if (!diceVisible) return;
@@ -754,6 +966,13 @@ document.addEventListener("DOMContentLoaded", () => {
       dice.quaternion.copy(interpolated).multiply(spin);
       dice.position.y =
         DICE_CONFIG.overlayY + Math.sin(Math.PI * linear) * DICE_CONFIG.bounceHeight;
+      if (
+        !landingImpactTriggered &&
+        now - startTime >= DICE_CONFIG.rollDuration - DICE_SOUND_CONFIG.landingImpactLead
+      ) {
+        landingImpactTriggered = true;
+        diceAudioSession.playLandingImpact();
+      }
       if (linear < 1) {
         diceAnimationFrame = window.requestAnimationFrame(animateRoll);
       } else {
@@ -865,6 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   target.addEventListener("targetFound", () => {
+    if (isCamelPlaybackLocked()) return;
     hideExperience();
     davidVisible = true;
     updateStatus();
@@ -887,6 +1107,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   helmetTarget.addEventListener("targetFound", () => {
+    if (isCamelPlaybackLocked()) return;
     helmetVisible = true;
     updateStatus();
     resetHelmet();
@@ -900,6 +1121,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   diceTarget.addEventListener("targetFound", () => {
+    if (isCamelPlaybackLocked()) return;
     if (diceVisible) return;
     diceVisible = true;
     updateStatus();
@@ -914,6 +1136,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   shipTarget.addEventListener("targetFound", () => {
+    if (isCamelPlaybackLocked()) return;
     if (shipVisible) return;
     shipVisible = true;
     resetShip();
@@ -929,6 +1152,26 @@ document.addEventListener("DOMContentLoaded", () => {
     // jitter. A different museum target explicitly closes it instead.
   });
 
+  camelTarget.addEventListener("targetFound", () => {
+    camelTargetVisible = true;
+    if (camelPlaybackState !== CAMEL_PLAYBACK_STATE.IDLE) return;
+    camelPlaybackState = CAMEL_PLAYBACK_STATE.PLAYING;
+    camelVisible = true;
+    updateStatus();
+    playCamel();
+  });
+
+  camelTarget.addEventListener("targetLost", () => {
+    camelTargetVisible = false;
+    // Tracking jitter cannot alter an active playback. After completion, one
+    // genuine clear event is required before Camel can be armed again.
+    if (camelPlaybackState !== CAMEL_PLAYBACK_STATE.WAIT_FOR_CLEAR) return;
+    camelPlaybackState = CAMEL_PLAYBACK_STATE.IDLE;
+    camelVisible = false;
+    resetCamel();
+    updateStatus();
+  });
+
   shipButton.addEventListener("click", () => {
     clearTimeout(shipAutoFireTimer);
     fireShipCannons(true);
@@ -939,9 +1182,15 @@ document.addEventListener("DOMContentLoaded", () => {
   target.addEventListener("targetFound", deactivateDice);
   helmetTarget.addEventListener("targetFound", deactivateDice);
   shipTarget.addEventListener("targetFound", deactivateDice);
+  camelTarget.addEventListener("targetFound", deactivateDice);
   target.addEventListener("targetFound", deactivateShip);
   helmetTarget.addEventListener("targetFound", deactivateShip);
   diceTarget.addEventListener("targetFound", deactivateShip);
+  camelTarget.addEventListener("targetFound", deactivateShip);
+  target.addEventListener("targetFound", deactivateCamel);
+  helmetTarget.addEventListener("targetFound", deactivateCamel);
+  diceTarget.addEventListener("targetFound", deactivateCamel);
+  shipTarget.addEventListener("targetFound", deactivateCamel);
 
   document.querySelector("#ar-scene").addEventListener("arError", () => {
     status.textContent = "Camera could not start. Check camera permission and HTTPS.";
@@ -951,5 +1200,6 @@ document.addEventListener("DOMContentLoaded", () => {
   resetHelmet();
   resetDice();
   resetShip();
+  resetCamel();
   updateStatus();
 });
