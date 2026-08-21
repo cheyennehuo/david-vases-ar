@@ -28,16 +28,23 @@
 
       <a-scene
         id="ar-scene"
-        mindar-image="imageTargetSrc: ./DavidVases_Target.mind; autoStart: true; uiLoading: yes; uiScanning: yes; uiError: yes;"
+        mindar-image="imageTargetSrc: ./Museum_Targets.mind; autoStart: true; uiLoading: yes; uiScanning: yes; uiError: yes;"
         color-space="sRGB"
         renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
         embedded
       >
+        <a-assets timeout="15000">
+          <img id="helmet-fragment-01" src="./helmet/helmet_fragment_01.png" />
+          <img id="helmet-fragment-02" src="./helmet/helmet_fragment_02.png" />
+          <img id="helmet-fragment-03" src="./helmet/helmet_fragment_03.png" />
+          <img id="helmet-fragment-04" src="./helmet/helmet_fragment_04.png" />
+        </a-assets>
+
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        <a-entity id="image-target" mindar-image-target="targetIndex: 0">
+        <a-entity id="david-target" mindar-image-target="targetIndex: 0">
           <!--
             Highlight tuning values:
             position: x y z (move horizontally, vertically, and slightly above the image)
@@ -52,6 +59,49 @@
             material="transparent: true; opacity: 0; depthTest: false; side: double"
             visible="false"
           ></a-plane>
+        </a-entity>
+
+        <!--
+          Each transparent fragment uses the Helmet target's full aspect ratio.
+          Identical x/y coordinates make the source canvases align exactly.
+        -->
+        <a-entity id="helmet-target" mindar-image-target="targetIndex: 1">
+          <a-image
+            class="helmet-fragment"
+            data-fragment="0"
+            src="#helmet-fragment-01"
+            position="0 0 0.020"
+            width="1"
+            height="1.418764"
+            material="transparent: true; alphaTest: 0.01; depthTest: false; shader: flat"
+          ></a-image>
+          <a-image
+            class="helmet-fragment"
+            data-fragment="1"
+            src="#helmet-fragment-02"
+            position="0 0 0.021"
+            width="1"
+            height="1.418764"
+            material="transparent: true; alphaTest: 0.01; depthTest: false; shader: flat"
+          ></a-image>
+          <a-image
+            class="helmet-fragment"
+            data-fragment="2"
+            src="#helmet-fragment-03"
+            position="0 0 0.022"
+            width="1"
+            height="1.418764"
+            material="transparent: true; alphaTest: 0.01; depthTest: false; shader: flat"
+          ></a-image>
+          <a-image
+            class="helmet-fragment"
+            data-fragment="3"
+            src="#helmet-fragment-04"
+            position="0 0 0.023"
+            width="1"
+            height="1.418764"
+            material="transparent: true; alphaTest: 0.01; depthTest: false; shader: flat"
+          ></a-image>
         </a-entity>
       </a-scene>
     </main>
