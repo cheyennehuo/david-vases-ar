@@ -73,7 +73,7 @@ const SHIP_SCREEN_CONFIG = {
   smokeDelay: 170,
   smokeDuration: 1850,
   smokeScale: 2.7,
-  cannonVolume: 0.16,
+  cannonVolume: 0.22,
   cannonPositions: [
     { x: 58.2, y: 86.9, angle: 7 },
     { x: 69.1, y: 84.8, angle: -5 },
@@ -297,22 +297,10 @@ document.addEventListener("DOMContentLoaded", () => {
     camelPlaybackState === CAMEL_PLAYBACK_STATE.PLAYING;
 
   const updateStatus = () => {
-    status.classList.toggle("is-hidden", shipVisible);
-    if (camelVisible) {
-      status.textContent = "Tang Tomb Camel found";
-    } else if (shipVisible) {
-      status.textContent = "Mechanical Ship found — tap the ship to fire";
-    } else if (diceVisible) {
-      status.textContent = "Dice found";
-    } else if (davidVisible && helmetVisible) {
-      status.textContent = "David Vases and Helmet found";
-    } else if (davidVisible) {
-      status.textContent = "Target found";
-    } else if (helmetVisible) {
-      status.textContent = "Helmet found";
-    } else {
-      status.textContent = "Point the camera at a museum target";
-    }
+    const targetIsActive =
+      davidVisible || helmetVisible || diceVisible || shipVisible || camelVisible;
+    status.classList.toggle("is-hidden", targetIsActive);
+    status.textContent = "Point the camera at a museum target";
   };
 
   const setShipScreenLayout = () => {
