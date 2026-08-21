@@ -26,6 +26,27 @@ a-scene {
   inset: 0;
 }
 
+#dice-overlay-canvas {
+  position: fixed;
+  z-index: 8;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#dice-overlay-canvas.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 .info-panel {
   position: fixed;
   z-index: 10;
@@ -72,6 +93,46 @@ a-scene {
   font-size: 0.8rem;
 }
 
+.dice-ui {
+  position: fixed;
+  z-index: 11;
+  left: 50%;
+  bottom: max(8vh, calc(env(safe-area-inset-bottom) + 28px));
+  width: min(90vw, 520px);
+  transform: translateX(-50%);
+  color: #f3f6f7;
+  text-align: center;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.92);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.dice-ui.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.dice-ui p {
+  margin: 0;
+}
+
+#dice-result {
+  min-height: 1.5em;
+  font-size: clamp(1rem, 3.8vw, 1.3rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+#dice-prompt {
+  margin-top: 0.65rem;
+  color: rgba(235, 241, 243, 0.88);
+  font-size: clamp(0.74rem, 2.8vw, 0.9rem);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+}
+
 @media (max-width: 600px) {
   .info-panel {
     top: auto;
@@ -86,5 +147,15 @@ a-scene {
   .status {
     top: max(12px, env(safe-area-inset-top));
     bottom: auto;
+  }
+
+  .dice-ui {
+    bottom: max(6vh, calc(env(safe-area-inset-bottom) + 20px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dice-ui {
+    transition: none;
   }
 }
