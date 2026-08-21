@@ -47,6 +47,154 @@ a-scene {
   pointer-events: auto;
 }
 
+#ship-screen-overlay {
+  position: fixed;
+  z-index: 9;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--ship-entrance-duration, 720ms) ease-out,
+    visibility 0s linear var(--ship-entrance-duration, 720ms);
+}
+
+#ship-screen-overlay.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.ship-screen-backdrop {
+  position: absolute;
+  left: var(--ship-center-x, 50%);
+  top: var(--ship-center-y, 46%);
+  width: var(--ship-backdrop-width, 125%);
+  height: var(--ship-backdrop-height, 112%);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.32) 0%,
+    rgba(0, 0, 0, 0.16) 44%,
+    rgba(0, 0, 0, 0) 75%
+  );
+  pointer-events: none;
+}
+
+#ship-screen-button {
+  position: absolute;
+  left: var(--ship-center-x, 50%);
+  top: var(--ship-center-y, 46%);
+  display: block;
+  width: min(var(--ship-width, 60vw), var(--ship-max-width, 430px), calc(78vh * 0.7048));
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  transform: translate(-50%, -50%) scale(0.975);
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#ship-screen-overlay.is-active #ship-screen-button {
+  opacity: 1;
+  pointer-events: auto;
+  animation: ship-screen-entrance var(--ship-entrance-duration, 720ms) ease-out forwards;
+}
+
+#ship-screen-motion {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1748 / 2480;
+  transform-origin: 50% 76%;
+  animation: ship-screen-rock var(--ship-rock-duration, 4700ms) ease-in-out infinite;
+  will-change: transform;
+}
+
+#ship-screen-image,
+#ship-screen-effects {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#ship-screen-image {
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+#ship-screen-effects {
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ship-muzzle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+}
+
+.ship-flash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 11px;
+  border-radius: 50%;
+  opacity: 0;
+  transform-origin: left center;
+  background: radial-gradient(ellipse at 18% 50%, #fff 0 14%, #fffbd0 22%, #ffd76d 48%, rgba(255, 161, 34, 0) 76%);
+  filter: blur(0.35px) drop-shadow(0 0 4px rgba(255, 194, 76, 0.85));
+  animation: ship-muzzle-flash 145ms ease-out forwards;
+}
+
+.ship-smoke-puff {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--puff-size);
+  height: var(--puff-size);
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle at 38% 36%, rgba(250, 249, 244, 0.9), rgba(210, 207, 198, 0.5) 43%, rgba(145, 145, 143, 0) 73%);
+  filter: blur(1.5px);
+  animation: ship-smoke-drift var(--smoke-duration) var(--puff-delay) cubic-bezier(0.14, 0.48, 0.3, 1) forwards;
+}
+
+@keyframes ship-screen-entrance {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.975); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes ship-screen-rock {
+  0%, 100% { transform: translate3d(0, calc(var(--ship-rock-y) * -0.35), 0) rotate(calc(var(--ship-rock-angle) * -0.45)); }
+  48% { transform: translate3d(calc(var(--ship-rock-x) * -0.35), var(--ship-rock-y), 0) rotate(var(--ship-rock-angle)); }
+  76% { transform: translate3d(var(--ship-rock-x), calc(var(--ship-rock-y) * 0.2), 0) rotate(calc(var(--ship-rock-angle) * -0.2)); }
+}
+
+@keyframes ship-muzzle-flash {
+  0% { opacity: 0; transform: translate(-20%, -50%) rotate(var(--fire-angle)) scale(0.12); }
+  22% { opacity: 1; transform: translate(-20%, -50%) rotate(var(--fire-angle)) scale(1); }
+  100% { opacity: 0; transform: translate(-5%, -50%) rotate(var(--fire-angle)) scale(1.42); }
+}
+
+@keyframes ship-smoke-drift {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  12% { opacity: var(--puff-opacity); }
+  55% { opacity: calc(var(--puff-opacity) * 0.52); }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y))) scale(var(--smoke-scale));
+  }
+}
+
 .info-panel {
   position: fixed;
   z-index: 10;

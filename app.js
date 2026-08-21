@@ -49,6 +49,30 @@ const DICE_SOUND_CONFIG = {
   soundDuration: 1.48,
 };
 
+// Screen-space Ship tuning. CSS accepts any length/percentage values here.
+const SHIP_SCREEN_CONFIG = {
+  width: "60vw",
+  maxWidth: "430px",
+  centerX: "50%",
+  centerY: "46%",
+  backdropWidth: "min(82vw, 590px)",
+  backdropHeight: "min(72vh, 680px)",
+  entranceDuration: 720,
+  rockingAmount: 0.42,
+  rockingDistanceX: 2.2,
+  rockingDistanceY: 3.2,
+  rockingDuration: 4700,
+  cannonDelay: 2050,
+  smokeDelay: 170,
+  smokeDuration: 1850,
+  smokeScale: 2.7,
+  cannonVolume: 0.16,
+  cannonPositions: [
+    { x: 58.2, y: 86.9, angle: 7 },
+    { x: 69.1, y: 84.8, angle: -5 },
+  ],
+};
+
 let diceAudioContext;
 let diceNoiseBuffer;
 
@@ -143,6 +167,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const target = document.querySelector("#david-target");
   const helmetTarget = document.querySelector("#helmet-target");
   const diceTarget = document.querySelector("#dice-target");
+  const shipTarget = document.querySelector("#ship-target");
+  const shipOverlay = document.querySelector("#ship-screen-overlay");
+  const shipButton = document.querySelector("#ship-screen-button");
+  const shipEffects = document.querySelector("#ship-screen-effects");
   const diceOverlayCanvas = document.querySelector("#dice-overlay-canvas");
   const helmetFragments = Array.from(document.querySelectorAll(".helmet-fragment"));
   const highlight = document.querySelector("#inscription-highlight");
@@ -157,6 +185,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let davidVisible = false;
   let helmetVisible = false;
   let diceVisible = false;
+  let shipVisible = false;
+  let shipAutoFireTimer;
+  let shipEffectTimers = [];
+  let shipAudioContext;
+  let shipFiring = false;
 
   const easeInOutCubic = (value) =>
     value < 0.5
@@ -166,7 +199,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const clamp01 = (value) => Math.min(1, Math.max(0, value));
 
   const updateStatus = () => {
-    if (diceVisible) {
+    if (shipVisible) {
+      status.textContent = "Mechanical Ship found — tap the ship to fire";
+    } else if (diceVisible) {
       status.textContent = "Dice found";
     } else if (davidVisible && helmetVisible) {
       status.textContent = "David Vases and Helmet found";
@@ -178,6 +213,118 @@ document.addEventListener("DOMContentLoaded", () => {
       status.textContent = "Point the camera at a museum target";
     }
   };
+
+  const setShipScreenLayout = () => {
+    const config = SHIP_SCREEN_CONFIG;
+    shipOverlay.style.setProperty("--ship-width", config.width);
+    shipOverlay.style.setProperty("--ship-max-width", config.maxWidth);
+    shipOverlay.style.setProperty("--ship-center-x", config.centerX);
+    shipOverlay.style.setProperty("--ship-center-y", config.centerY);
+    shipOverlay.style.setProperty("--ship-backdrop-width", config.backdropWidth);
+    shipOverlay.style.setProperty("--ship-backdrop-height", config.backdropHeight);
+    shipOverlay.style.setProperty("--ship-rock-angle", `${config.rockingAmount}deg`);
+    shipOverlay.style.setProperty("--ship-rock-x", `${config.rockingDistanceX}px`);
+    shipOverlay.style.setProperty("--ship-rock-y", `${config.rockingDistanceY}px`);
+    shipOverlay.style.setProperty("--ship-rock-duration", `${config.rockingDuration}ms`);
+    shipOverlay.style.setProperty("--ship-entrance-duration", `${config.entranceDuration}ms`);
+  };
+
+  const clearShipEffects = () => {
+    shipEffectTimers.forEach(window.clearTimeout);
+    shipEffectTimers = [];
+    shipFiring = false;
+    shipEffects.replaceChildren();
+  };
+
+  // Procedural cannon sound copied from Ship-AR-Prototype; visual firing never
+  // depends on AudioContext permission.
+  const playShipCannonSound = (fromUserGesture) => {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!shipAudioContext) shipAudioContext = new AudioContextClass();
+    if (shipAudioContext.state === "suspended") {
+      if (!fromUserGesture) return;
+      shipAudioContext.resume().then(() => playShipCannonSound(false)).catch(() => {});
+      return;
+    }
+    const now = shipAudioContext.currentTime;
+    const master = shipAudioContext.createGain();
+    const compressor = shipAudioContext.createDynamicsCompressor();
+    master.gain.setValueAtTime(SHIP_SCREEN_CONFIG.cannonVolume, now);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
+    compressor.threshold.value = -18;
+    compressor.knee.value = 12;
+    compressor.ratio.value = 5;
+    master.connect(compressor).connect(shipAudioContext.destination);
+    const sampleCount = Math.floor(shipAudioContext.sampleRate * 0.58);
+    const buffer = shipAudioContext.createBuffer(1, sampleCount, shipAudioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < sampleCount; index += 1) {
+      const time = index / shipAudioContext.sampleRate;
+      const burst = Math.exp(-time * 15);
+      const rumble = Math.sin(2 * Math.PI * (68 - time * 25) * time) * Math.exp(-time * 5.8);
+      data[index] = ((Math.random() * 2 - 1) * burst * 0.72 + rumble * 0.7) * 0.72;
+    }
+    const source = shipAudioContext.createBufferSource();
+    const lowpass = shipAudioContext.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.setValueAtTime(520, now);
+    lowpass.frequency.exponentialRampToValueAtTime(120, now + 0.5);
+    source.buffer = buffer;
+    source.connect(lowpass).connect(master);
+    source.start(now);
+    source.stop(now + 0.6);
+  };
+
+  const createShipCannonEffect = (cannon, delay) => {
+    const muzzle = document.createElement("span");
+    muzzle.className = "ship-muzzle";
+    muzzle.style.left = `${cannon.x}%`;
+    muzzle.style.top = `${cannon.y}%`;
+    muzzle.style.setProperty("--fire-angle", `${cannon.angle}deg`);
+    const flash = document.createElement("span");
+    flash.className = "ship-flash";
+    flash.style.animationDelay = `${delay}ms`;
+    muzzle.appendChild(flash);
+    for (let index = 0; index < 6; index += 1) {
+      const puff = document.createElement("span");
+      puff.className = "ship-smoke-puff";
+      puff.style.setProperty("--puff-size", `${13 + Math.random() * 9}px`);
+      puff.style.setProperty("--puff-delay", `${delay + SHIP_SCREEN_CONFIG.smokeDelay + index * 42}ms`);
+      puff.style.setProperty("--puff-opacity", (0.36 + Math.random() * 0.22).toFixed(2));
+      puff.style.setProperty("--drift-x", `${30 + index * 7 + Math.random() * 8}px`);
+      puff.style.setProperty("--drift-y", `${-17 + (index - 2.5) * 7 + Math.random() * 5}px`);
+      puff.style.setProperty("--smoke-duration", `${SHIP_SCREEN_CONFIG.smokeDuration}ms`);
+      puff.style.setProperty("--smoke-scale", SHIP_SCREEN_CONFIG.smokeScale + Math.random() * 0.45);
+      muzzle.appendChild(puff);
+    }
+    shipEffects.appendChild(muzzle);
+  };
+
+  const fireShipCannons = (fromUserGesture) => {
+    if (!shipVisible || shipFiring) return;
+    clearShipEffects();
+    shipFiring = true;
+    SHIP_SCREEN_CONFIG.cannonPositions.forEach((cannon, index) => createShipCannonEffect(cannon, index * 35));
+    playShipCannonSound(fromUserGesture);
+    shipEffectTimers.push(window.setTimeout(clearShipEffects, SHIP_SCREEN_CONFIG.smokeDuration + 650));
+  };
+
+  const resetShip = () => {
+    clearTimeout(shipAutoFireTimer);
+    clearShipEffects();
+    shipOverlay.classList.remove("is-active");
+    shipOverlay.setAttribute("aria-hidden", "true");
+  };
+
+  const deactivateShip = () => {
+    if (!shipVisible) return;
+    shipVisible = false;
+    resetShip();
+    updateStatus();
+  };
+
+  setShipScreenLayout();
 
   const setFragmentAppearance = (fragment, scale, highlighted) => {
     fragment.object3D.scale.setScalar(scale);
@@ -766,10 +913,35 @@ document.addEventListener("DOMContentLoaded", () => {
     // jitter and brief target loss must not interrupt the unlocked experience.
   });
 
+  shipTarget.addEventListener("targetFound", () => {
+    if (shipVisible) return;
+    shipVisible = true;
+    resetShip();
+    shipVisible = true;
+    shipOverlay.classList.add("is-active");
+    shipOverlay.setAttribute("aria-hidden", "false");
+    updateStatus();
+    shipAutoFireTimer = window.setTimeout(() => fireShipCannons(false), SHIP_SCREEN_CONFIG.cannonDelay);
+  });
+
+  shipTarget.addEventListener("targetLost", () => {
+    // Once triggered, keep the stable screen overlay active through tracking
+    // jitter. A different museum target explicitly closes it instead.
+  });
+
+  shipButton.addEventListener("click", () => {
+    clearTimeout(shipAutoFireTimer);
+    fireShipCannons(true);
+  });
+
   // A clearly detected different museum target ends the Dice interaction,
   // without changing either target's existing visual or animation handlers.
   target.addEventListener("targetFound", deactivateDice);
   helmetTarget.addEventListener("targetFound", deactivateDice);
+  shipTarget.addEventListener("targetFound", deactivateDice);
+  target.addEventListener("targetFound", deactivateShip);
+  helmetTarget.addEventListener("targetFound", deactivateShip);
+  diceTarget.addEventListener("targetFound", deactivateShip);
 
   document.querySelector("#ar-scene").addEventListener("arError", () => {
     status.textContent = "Camera could not start. Check camera permission and HTTPS.";
@@ -778,5 +950,6 @@ document.addEventListener("DOMContentLoaded", () => {
   hideExperience();
   resetHelmet();
   resetDice();
+  resetShip();
   updateStatus();
 });

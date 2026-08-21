@@ -33,6 +33,16 @@
 
       <canvas id="dice-overlay-canvas" aria-hidden="true"></canvas>
 
+      <div id="ship-screen-overlay" aria-hidden="true">
+        <div class="ship-screen-backdrop" aria-hidden="true"></div>
+        <button id="ship-screen-button" type="button" aria-label="Tap the ship to fire the cannons">
+          <span id="ship-screen-motion">
+            <img id="ship-screen-image" src="./ship/ship_overlay.png" alt="" draggable="false" />
+            <span id="ship-screen-effects" aria-hidden="true"></span>
+          </span>
+        </button>
+      </div>
+
       <a-scene
         id="ar-scene"
         mindar-image="imageTargetSrc: ./Museum_Targets.mind; autoStart: true; uiLoading: yes; uiScanning: yes; uiError: yes;"
@@ -113,6 +123,9 @@
 
         <!-- This target only unlocks Dice; it does not parent or pose the 3D object. -->
         <a-entity id="dice-target" mindar-image-target="targetIndex: 2"></a-entity>
+
+        <!-- Trigger only: the Ship experience is a stable screen-fixed HTML overlay. -->
+        <a-entity id="ship-target" mindar-image-target="targetIndex: 3"></a-entity>
       </a-scene>
     </main>
   </body>
