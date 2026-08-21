@@ -31,7 +31,7 @@ const DICE_CONFIG = {
   cornerRadius: 0.16,
   cornerSegments: 8,
   arScale: 0.405,
-  overlayY: -0.16,
+  overlayY: 0.23,
   idleRotation: {
     x: 25 * Math.PI / 180,
     y: 45 * Math.PI / 180,
