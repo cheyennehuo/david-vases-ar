@@ -162,7 +162,6 @@ a-scene {
   width: 100%;
   aspect-ratio: 1748 / 2480;
   transform-origin: 50% 76%;
-  animation: ship-screen-rock var(--ship-rock-duration, 4700ms) ease-in-out infinite;
   will-change: transform;
 }
 
@@ -222,12 +221,6 @@ a-scene {
 @keyframes ship-screen-entrance {
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.975); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-
-@keyframes ship-screen-rock {
-  0%, 100% { transform: translate3d(0, calc(var(--ship-rock-y) * -0.35), 0) rotate(calc(var(--ship-rock-angle) * -0.45)); }
-  48% { transform: translate3d(calc(var(--ship-rock-x) * -0.35), var(--ship-rock-y), 0) rotate(var(--ship-rock-angle)); }
-  76% { transform: translate3d(var(--ship-rock-x), calc(var(--ship-rock-y) * 0.2), 0) rotate(calc(var(--ship-rock-angle) * -0.2)); }
 }
 
 @keyframes ship-muzzle-flash {

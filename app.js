@@ -61,10 +61,14 @@ const SHIP_SCREEN_CONFIG = {
   backdropWidth: "min(82vw, 590px)",
   backdropHeight: "min(72vh, 680px)",
   entranceDuration: 720,
-  rockingAmount: 0.42,
-  rockingDistanceX: 2.2,
-  rockingDistanceY: 3.2,
+  rockingAmount: 1.55,
+  rockingDistanceX: 7,
+  rockingDistanceY: 6.5,
   rockingDuration: 4700,
+  horizontalDriftDuration: 5200,
+  verticalFloatDuration: 6100,
+  organicWaveDuration: 7300,
+  organicFloatDuration: 8700,
   cannonDelay: 2050,
   smokeDelay: 170,
   smokeDuration: 1850,
@@ -249,6 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const camelTarget = document.querySelector("#camel-target");
   const shipOverlay = document.querySelector("#ship-screen-overlay");
   const shipButton = document.querySelector("#ship-screen-button");
+  const shipMotion = document.querySelector("#ship-screen-motion");
   const shipEffects = document.querySelector("#ship-screen-effects");
   const camelOverlay = document.querySelector("#camel-screen-overlay");
   const camelCutoutImage = document.querySelector("#camel-cutout-image");
@@ -274,6 +279,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let shipEffectTimers = [];
   let shipAudioContext;
   let shipFiring = false;
+  let shipMotionAnimationFrame;
+  let shipMotionStartTime;
   let camelPlayed = false;
   let camelPlaybackState = CAMEL_PLAYBACK_STATE.IDLE;
   let camelTimers = [];
@@ -403,9 +410,43 @@ document.addEventListener("DOMContentLoaded", () => {
     shipEffectTimers.push(window.setTimeout(clearShipEffects, SHIP_SCREEN_CONFIG.smokeDuration + 650));
   };
 
+  const animateShipMotion = (now) => {
+    if (!shipVisible) return;
+    if (shipMotionStartTime === undefined) shipMotionStartTime = now;
+    const elapsed = now - shipMotionStartTime;
+    const fullTurn = Math.PI * 2;
+    const organicWave = elapsed / SHIP_SCREEN_CONFIG.organicWaveDuration * fullTurn;
+    const rotationWave =
+      Math.sin(elapsed / SHIP_SCREEN_CONFIG.rockingDuration * fullTurn) * 0.88 +
+      Math.sin(organicWave + 0.9) * 0.12;
+    const horizontalWave =
+      Math.sin(elapsed / SHIP_SCREEN_CONFIG.horizontalDriftDuration * fullTurn + 0.35) * 0.85 +
+      Math.sin(organicWave + 1.7) * 0.15;
+    const verticalWave =
+      Math.sin(elapsed / SHIP_SCREEN_CONFIG.verticalFloatDuration * fullTurn + 1.1) * 0.82 +
+      Math.sin(elapsed / SHIP_SCREEN_CONFIG.organicFloatDuration * fullTurn + 2.4) * 0.18;
+
+    const angle = rotationWave * SHIP_SCREEN_CONFIG.rockingAmount;
+    const x = horizontalWave * SHIP_SCREEN_CONFIG.rockingDistanceX;
+    const y = verticalWave * SHIP_SCREEN_CONFIG.rockingDistanceY;
+    shipMotion.style.transform =
+      `translate3d(${x.toFixed(3)}px, ${y.toFixed(3)}px, 0) rotate(${angle.toFixed(3)}deg)`;
+    shipMotionAnimationFrame = window.requestAnimationFrame(animateShipMotion);
+  };
+
+  const startShipMotion = () => {
+    window.cancelAnimationFrame(shipMotionAnimationFrame);
+    shipMotionStartTime = undefined;
+    shipMotionAnimationFrame = window.requestAnimationFrame(animateShipMotion);
+  };
+
   const resetShip = () => {
     clearTimeout(shipAutoFireTimer);
     clearShipEffects();
+    window.cancelAnimationFrame(shipMotionAnimationFrame);
+    shipMotionAnimationFrame = undefined;
+    shipMotionStartTime = undefined;
+    shipMotion.style.transform = "translate3d(0, 0, 0) rotate(0deg)";
     shipOverlay.classList.remove("is-active");
     shipOverlay.setAttribute("aria-hidden", "true");
   };
@@ -1143,6 +1184,7 @@ document.addEventListener("DOMContentLoaded", () => {
     shipVisible = true;
     shipOverlay.classList.add("is-active");
     shipOverlay.setAttribute("aria-hidden", "false");
+    startShipMotion();
     updateStatus();
     shipAutoFireTimer = window.setTimeout(() => fireShipCannons(false), SHIP_SCREEN_CONFIG.cannonDelay);
   });
