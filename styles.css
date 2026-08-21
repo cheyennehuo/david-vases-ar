@@ -165,6 +165,24 @@ a-scene {
   will-change: transform;
 }
 
+#ship-screen-prompt {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: calc(var(--ship-center-y, 46%) + min(43vw, 39vh, 305px) + 14px);
+  margin: 0;
+  transform: translateX(-50%);
+  color: rgba(235, 241, 243, 0.88);
+  font-size: clamp(0.74rem, 2.8vw, 0.9rem);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  line-height: normal;
+  text-align: center;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.92);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 #ship-screen-image,
 #ship-screen-effects {
   position: absolute;
@@ -285,6 +303,10 @@ a-scene {
   font-size: 0.8rem;
 }
 
+.status.is-hidden {
+  visibility: hidden;
+}
+
 .dice-ui {
   position: fixed;
   z-index: 11;
@@ -342,7 +364,7 @@ a-scene {
   }
 
   .dice-ui {
-    bottom: max(6vh, calc(env(safe-area-inset-bottom) + 20px));
+    bottom: calc(max(6vh, calc(env(safe-area-inset-bottom) + 20px)) + 64px);
   }
 }
 

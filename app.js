@@ -297,6 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
     camelPlaybackState === CAMEL_PLAYBACK_STATE.PLAYING;
 
   const updateStatus = () => {
+    status.classList.toggle("is-hidden", shipVisible);
     if (camelVisible) {
       status.textContent = "Tang Tomb Camel found";
     } else if (shipVisible) {
